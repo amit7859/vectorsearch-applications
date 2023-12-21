@@ -5,7 +5,7 @@ from openai_interface import GPT_Turbo
 from openai import BadRequestError
 from app_features import (convert_seconds, generate_prompt_series, search_result,
                           validate_token_threshold, load_content_cache, load_data,
-                          )
+                          prepare_expanded_content, expand_response_content)
 from reranker import ReRanker
 from loguru import logger 
 import streamlit as st
@@ -57,9 +57,12 @@ encoding = encoding_for_model(model_name)
 
 ## DATA + CACHE
 data_path = 'data/impact_theory_data.json'
-cache_path = '../impact-theory-cache-window2.parquet'
+# cache_path = '../impact-theory-cache-window2.parquet'
+cache_path = 'impact-theory-minilmL6-256.parquet'
 data = load_data(data_path)
 # cache = load_content_cache(cache_path)
+
+expanded_content_map = prepare_expanded_content(cache_path, 1)
 
 #creates list of guests for sidebar
 guest_list = sorted(list(set([d['guest'] for d in data])))
@@ -113,7 +116,8 @@ def main():
                                               top_k=reranker_topk, 
                                               apply_sigmoid=True)
             
-            expanded_response = ranked_response
+
+            expanded_response = expand_response_content(ranked_response, expanded_content_map)
 
             # validate token count is below threshold
             token_threshold = 8000 if model_name == model_ids[0] else 3500

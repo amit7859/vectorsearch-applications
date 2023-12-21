@@ -125,3 +125,45 @@ def search_result(i: int,
             {content}
         </div>
     """
+
+
+# Additional function added to expand the window of the context passed to the LLM. 
+
+from itertools import groupby
+
+@st.cache_data
+def prepare_expanded_content(cache_data_path: str, window_size: int=2) -> dict:
+    '''
+    Augments the content for each document with the content from the preceeding and 
+    following documents from the same window based the window_size argument. 
+    '''
+
+    data = FileIO().load_parquet(cache_data_path)
+
+    episodes = []
+    for key, group in groupby(data, lambda x: x['video_id']):
+        episode = [chunk for chunk in group]
+        episodes.append(episode)
+
+    parent_chunks = {}
+    for episode in episodes:
+        contents = [d['content'] for d in episode]
+        for i, d in enumerate(episode):
+            doc_id = d['doc_id']
+            start = max(0, i-window_size)
+            end = i+window_size+1
+            chunk = ' '.join(contents[start:end])
+            parent_chunks[doc_id] = chunk
+    return parent_chunks
+
+
+def expand_response_content(response: List, expanded_content_map: dict) :
+    '''
+    Uses the expanded content map to expand the content in each of the search responses 
+    to be sent to the LLM. 
+    '''
+
+    for doc in response:
+        doc['content'] = expanded_content_map[doc['doc_id']]
+
+    return response
